@@ -1,10 +1,10 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>fetch_teleop_safety</name>
+  <name>fetch_teleop</name>
   <version>0.0.1</version>
   <description>Safety controller for Fetch Teleoperation</description>
 
-  <maintainer email="chinmay@todo.todo">Chinmay</maintainer>
+  <maintainer email="chinmayamrutkar01@gmail.com">Chinmay</maintainer>
   <license>MIT</license>
 
   <buildtool_depend>catkin</buildtool_depend>

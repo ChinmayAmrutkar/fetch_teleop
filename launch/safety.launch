@@ -1,6 +1,6 @@
 <launch>
   <!-- 1. Start the Safety Controller -->
-  <node pkg="fetch_teleop_safety" type="safety_controller.py" name="fetch_safety_controller" output="screen">
+  <node pkg="fetch_teleop" type="safety_controller.py" name="fetch_safety_controller" output="screen">
   </node>
 
   <!-- 2. Start the Keyboard Teleop (Pre-configured) -->

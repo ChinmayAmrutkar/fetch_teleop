@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0.2)
-project(fetch_teleop_safety)
+project(fetch_teleop)
 
 find_package(catkin REQUIRED COMPONENTS
   rospy
