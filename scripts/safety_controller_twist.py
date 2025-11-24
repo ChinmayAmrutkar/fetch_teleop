@@ -12,8 +12,6 @@ class SafetyControllerTwist:
         self.stop_distance = 0.6
         self.safe_to_move_forward = True
 
-        # --- Method A: "Man-in-the-Middle" ---
-        # We intercept the command, modify it, and pass it on.
         self.cmd_sub = rospy.Subscriber('/cmd_vel_teleop', Twist, self.cmd_callback)
         self.scan_sub = rospy.Subscriber('/base_scan', LaserScan, self.scan_callback)
         self.cmd_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
@@ -22,7 +20,13 @@ class SafetyControllerTwist:
 
     def scan_callback(self, scan_msg):
         ranges = np.array(scan_msg.ranges)
-        ranges = np.nan_to_num(ranges, nan=10.0, posinf=10.0, neginf=10.0)
+        
+        # --- FIX FOR ROS MELODIC / PYTHON 2.7 ---
+        # Older numpy doesn't support nan_to_num(nan=...)
+        # We manually replace NaNs and Infs with 10.0 (far away)
+        ranges[np.isnan(ranges)] = 10.0
+        ranges[np.isinf(ranges)] = 10.0
+        # ----------------------------------------
         
         # Check center cone
         mid_index = len(ranges) // 2
@@ -37,7 +41,6 @@ class SafetyControllerTwist:
     def cmd_callback(self, twist_msg):
         safe_cmd = Twist()
         
-        # ACTIVE FILTERING: Modify the message object directly
         if twist_msg.linear.x > 0 and not self.safe_to_move_forward:
             safe_cmd.linear.x = 0.0 # Force 0
             safe_cmd.angular.z = twist_msg.angular.z
