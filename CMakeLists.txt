@@ -16,6 +16,7 @@ include_directories(
 
 # Install the python scripts so ROS can find them
 catkin_install_python(PROGRAMS
-  scripts/safety_controller.py
+  scripts/safety_controller_twist.py
+  scripts/safety_controller_runstop.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
