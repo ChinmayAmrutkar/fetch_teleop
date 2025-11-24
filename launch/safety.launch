@@ -1,11 +1,24 @@
 <launch>
-  <!-- 1. Start the Safety Controller -->
-  <node pkg="fetch_teleop" type="safety_controller.py" name="fetch_safety_controller" output="screen">
-  </node>
+  <!-- Argument to choose method: 'twist' or 'runstop' -->
+  <arg name="method" default="twist" />
 
-  <!-- 2. Start the Keyboard Teleop (Pre-configured) -->
-  <!-- We remap 'cmd_vel' to 'cmd_vel_teleop' so it talks to our safety node, not the robot -->
-  <node pkg="teleop_twist_keyboard" type="teleop_twist_keyboard.py" name="teleop_keyboard" output="screen">
-    <remap from="cmd_vel" to="cmd_vel_teleop" />
-  </node>
+  <!-- METHOD A: Twist Filter -->
+  <group if="$(eval arg('method') == 'twist')">
+    <node pkg="fetch_teleop" type="safety_controller_twist.py" name="safety_twist" output="screen" />
+    
+    <!-- For Twist Method, we remap teleop to /cmd_vel_teleop so the node can intercept it -->
+    <node pkg="teleop_twist_keyboard" type="teleop_twist_keyboard.py" name="teleop_keyboard" output="screen">
+      <remap from="cmd_vel" to="cmd_vel_teleop" />
+    </node>
+  </group>
+
+  <!-- METHOD B: Runstop Trigger -->
+  <group if="$(eval arg('method') == 'runstop')">
+    <node pkg="fetch_teleop" type="safety_controller_runstop.py" name="safety_runstop" output="screen" />
+    
+    <!-- For Runstop Method, Teleop talks DIRECTLY to robot. The safety node interrupts from the side. -->
+    <node pkg="teleop_twist_keyboard" type="teleop_twist_keyboard.py" name="teleop_keyboard" output="screen">
+      <!-- No remapping needed, talks to /cmd_vel directly -->
+    </node>
+  </group>
 </launch>
