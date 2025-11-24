@@ -1,0 +1,10 @@
+ROS Build Artifacts (NEVER Upload these)
+
+build/
+devel/
+logs/
+.catkin_workspace
+*.pyc
+*.egg-info
+pycache/
+.vscode/

@@ -1,0 +1,11 @@
+<launch>
+  <!-- 1. Start the Safety Controller -->
+  <node pkg="fetch_teleop_safety" type="safety_controller.py" name="fetch_safety_controller" output="screen">
+  </node>
+
+  <!-- 2. Start the Keyboard Teleop (Pre-configured) -->
+  <!-- We remap 'cmd_vel' to 'cmd_vel_teleop' so it talks to our safety node, not the robot -->
+  <node pkg="teleop_twist_keyboard" type="teleop_twist_keyboard.py" name="teleop_keyboard" output="screen">
+    <remap from="cmd_vel" to="cmd_vel_teleop" />
+  </node>
+</launch>
