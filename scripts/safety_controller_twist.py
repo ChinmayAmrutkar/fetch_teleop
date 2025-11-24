@@ -21,19 +21,25 @@ class SafetyControllerTwist:
     def scan_callback(self, scan_msg):
         ranges = np.array(scan_msg.ranges)
         
-        # --- FIX FOR ROS MELODIC / PYTHON 2.7 ---
-        # Older numpy doesn't support nan_to_num(nan=...)
-        # We manually replace NaNs and Infs with 10.0 (far away)
+        # --- FIX 1: NaN/Inf to High Value ---
         ranges[np.isnan(ranges)] = 10.0
         ranges[np.isinf(ranges)] = 10.0
-        # ----------------------------------------
+        
+        # --- FIX 2: FILTER GHOST NOISE (0.0 to 0.05m) ---
+        # Any value less than 5cm is likely a driver error or self-reflection.
+        # We treat it as "clear" (10.0m)
+        ranges[ranges < 0.05] = 10.0
         
         # Check center cone
         mid_index = len(ranges) // 2
-        window_width = len(ranges) // 6
+        window_width = len(ranges) // 8
         front_ranges = ranges[mid_index - window_width : mid_index + window_width]
         
-        if np.min(front_ranges) < self.stop_distance:
+        # Log the minimum value for debugging
+        min_val = np.min(front_ranges)
+        # rospy.loginfo_throttle(0.5, "Min Dist: {:.3f}".format(min_val))
+        
+        if min_val < self.stop_distance:
             self.safe_to_move_forward = False
         else:
             self.safe_to_move_forward = True
@@ -42,7 +48,7 @@ class SafetyControllerTwist:
         safe_cmd = Twist()
         
         if twist_msg.linear.x > 0 and not self.safe_to_move_forward:
-            safe_cmd.linear.x = 0.0 # Force 0
+            safe_cmd.linear.x = 0.0
             safe_cmd.angular.z = twist_msg.angular.z
             rospy.logwarn_throttle(1, "Twist Filter: Stopping Command!")
         else:
