@@ -1,31 +1,31 @@
 <launch>
   <!-- ARGUMENTS -->
+  <!-- Ensure this default path matches where you saved the map in Phase 1 -->
   <arg name="map_file" default="$(env HOME)/my_maps/lab_map.yaml" />
-  <arg name="mocap_ip" default="192.168.0.127" /> <!-- CHANGE THIS TO OPTITRACK IP -->
+  <arg name="mocap_ip" default="192.168.1.100" /> <!-- CHANGE THIS TO OPTITRACK IP -->
   <arg name="rigid_body" default="Fetch" />
 
-  <!-- 1. Map Server (Load the map we made) -->
-  <node name="map_server" pkg="map_server" type="map_server" args="$(arg map_file)" />
+  <!-- 1. Fetch Navigation Stack -->
+  <!-- REPLACED: Instead of calling map_server and amcl separately, we use the standard Fetch launcher. -->
+  <!-- This starts: Map Server, AMCL, and Move Base -->
+  <include file="$(find fetch_navigation)/launch/fetch_nav.launch">
+    <arg name="map_file" value="$(arg map_file)" />
+  </include>
 
-  <!-- 2. AMCL (Localization) -->
-  <include file="$(find fetch_navigation)/launch/amcl.launch" />
-
-  <!-- 3. VRPN Client (Optitrack) -->
+  <!-- 2. VRPN Client (Optitrack) -->
   <node pkg="vrpn_client_ros" type="vrpn_client_node" name="vrpn_client_node" output="screen">
     <rosparam subst_value="true">
       server: $(arg mocap_ip)
       port: 3883
       update_frequency: 100.0
       frame_id: world
-      # Use the VRPN server's time, or the ROS time
       use_server_time: false
       broadcast_tf: true
-      # Must match the name in Motive Software
       refresh_tracker_frequency: 1.0
     </rosparam>
   </node>
 
-  <!-- 4. Pose Logger (Analysis) -->
+  <!-- 3. Pose Logger (Analysis) -->
   <node pkg="fetch_teleop" type="pose_logger.py" name="pose_logger" output="screen">
     <param name="rigid_body_name" value="$(arg rigid_body)" />
     <!-- Tunable offsets if frames aren't perfectly aligned -->
@@ -33,5 +33,7 @@
     <param name="offset_y" value="0.0" />
   </node>
   
-  <!-- NOTE: Run 'roslaunch fetch_teleop safety.launch method:=delayed' in another terminal for control -->
+  <!-- NOTE: In a separate terminal, run: 
+       roslaunch fetch_teleop safety.launch method:=delayed 
+  -->
 </launch>
