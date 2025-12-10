@@ -16,16 +16,19 @@
     </node>
   </group>
 
-  <!-- METHOD C: FULL LATENCY EXPERIMENT (Keyboard + Camera) -->
+  <!-- METHOD C: DELAY + ADMITTANCE EXPERIMENT -->
   <group if="$(eval arg('method') == 'delayed')">
     
-    <!-- 1. The Safety Node (Listens to /cmd_vel_teleop) -->
+    <!-- 4. The Safety Node (Listens to /cmd_vel_teleop) -->
     <node pkg="fetch_teleop" type="safety_controller_twist.py" name="safety_twist" output="screen" />
 
-    <!-- 2. The Delay Node (Listens to /cmd_vel_raw and /head_camera/rgb/image_raw) -->
+    <!-- 3. The Admittance Node (Listens to /cmd_vel_delayed, Publishes /cmd_vel_teleop) -->
+    <node pkg="fetch_teleop" type="admittance_controller.py" name="admittance_node" output="screen" />
+
+    <!-- 2. The Delay Node (Listens to raw, Publishes /cmd_vel_delayed) -->
     <node pkg="fetch_teleop" type="cmd_delay.py" name="delay_node" output="screen" />
 
-    <!-- 3. The Keyboard (Publishes to /cmd_vel_raw) -->
+    <!-- 1. The Keyboard (Publishes to /cmd_vel_raw) -->
     <node pkg="teleop_twist_keyboard" type="teleop_twist_keyboard.py" name="teleop_keyboard" output="screen">
       <remap from="cmd_vel" to="cmd_vel_raw" />
     </node>
