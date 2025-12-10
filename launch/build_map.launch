@@ -1,0 +1,16 @@
+<launch>
+  <!-- 1. Start Fetch Built-in Gmapping -->
+  <!-- This starts the SLAM algorithm provided by Fetch Robotics -->
+  <include file="$(find fetch_navigation)/launch/build_map.launch" />
+
+  <!-- 2. Start Rviz (Optional, usually included in build_map, but good to ensure) -->
+  <!-- <node pkg="rviz" type="rviz" name="$(anon rviz)" /> -->
+
+  <!-- 3. Instructions -->
+  <!-- 
+       1. Run this file.
+       2. Use your teleop keyboard to drive around the ENTIRE lab.
+       3. Once the map looks good in RViz, run:
+          rosrun fetch_teleop save_map.py
+  -->
+</launch>
