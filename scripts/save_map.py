@@ -10,7 +10,7 @@ def save_map():
     
     # 1. Define storage location
     # We save to the user's home directory under 'my_maps'
-    map_dir = os.path.expanduser("~/my_maps")
+    map_dir = os.path.expanduser("~/chinmay/fetch_teleop_ws/my_maps")
     if not os.path.exists(map_dir):
         os.makedirs(map_dir)
         
