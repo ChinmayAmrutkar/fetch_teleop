@@ -18,5 +18,6 @@ include_directories(
 catkin_install_python(PROGRAMS
   scripts/safety_controller_twist.py
   scripts/safety_controller_runstop.py
+  scripts/cmd_delay.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
