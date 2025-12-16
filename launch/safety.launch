@@ -1,5 +1,9 @@
 <launch>
   <arg name="method" default="twist" />
+  
+  <!-- CONFIGURATION ARGS -->
+  <arg name="delay_time" default="1.0" /> <!-- Seconds of delay for BOTH controls and camera -->
+  <arg name="camera_ip" default="192.168.0.172" /> <!-- External camera server IP -->
 
   <!-- METHOD A: Standard Twist Filter (No Delay) -->
   <group if="$(eval arg('method') == 'twist')">
@@ -16,7 +20,7 @@
     </node>
   </group>
 
-  <!-- METHOD C: DELAY + ADMITTANCE EXPERIMENT -->
+  <!-- METHOD C: DELAY + ADMITTANCE + CAMERA EXPERIMENT -->
   <group if="$(eval arg('method') == 'delayed')">
     
     <!-- 4. The Safety Node (Listens to /cmd_vel_teleop) -->
@@ -26,7 +30,17 @@
     <node pkg="fetch_teleop" type="admittance_controller.py" name="admittance_node" output="screen" />
 
     <!-- 2. The Delay Node (Listens to raw, Publishes /cmd_vel_delayed) -->
-    <node pkg="fetch_teleop" type="cmd_delay.py" name="delay_node" output="screen" />
+    <!-- We pass the 'delay' param here -->
+    <node pkg="fetch_teleop" type="cmd_delay.py" name="delay_node" output="screen">
+        <param name="delay" value="$(arg delay_time)" />
+    </node>
+
+    <!-- 2.5 External Camera Node -->
+    <!-- We pass the 'delay' and 'server_host' params here -->
+    <node pkg="fetch_teleop" type="external_camera.py" name="external_camera_node" output="screen">
+        <param name="delay" value="$(arg delay_time)" />
+        <param name="server_host" value="$(arg camera_ip)" />
+    </node>
 
     <!-- 1. The Keyboard (Publishes to /cmd_vel_raw) -->
     <node pkg="teleop_twist_keyboard" type="teleop_twist_keyboard.py" name="teleop_keyboard" output="screen">

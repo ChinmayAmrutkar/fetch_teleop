@@ -8,8 +8,10 @@ class CmdDelay:
     def __init__(self):
         rospy.init_node('cmd_delay_node')
 
-        # Parameter: Delay in seconds
-        self.delay = 0.5 # 500 milliseconds
+        # --- UPDATED: Get Delay from Parameter Server ---
+        # This ensures it matches the camera delay set in the launch file
+        self.delay = rospy.get_param('~delay', 1.0)
+        
         self.buffer = deque()
 
         # Listen to the RAW input from keyboard
@@ -21,13 +23,9 @@ class CmdDelay:
         # Timer to process buffer at 50Hz
         self.timer = rospy.Timer(rospy.Duration(0.02), self.process_buffer)
 
-        rospy.loginfo("DEBUG MODE: Delay Node Started. Waiting for /cmd_vel_raw...")
+        rospy.loginfo("CMD Delay Node Started. Latency: {} seconds".format(self.delay))
 
     def cmd_callback(self, msg):
-        # DEBUG: Confirm we got input
-        rospy.loginfo_throttle(1, "Input Received! Buffering...")
-        
-        # Use Time.now() which is safer than get_rostime() on some setups
         now = rospy.Time.now()
         self.buffer.append((now, msg))
 
@@ -37,19 +35,14 @@ class CmdDelay:
 
         now = rospy.Time.now()
         
-        # Process all ready messages
         while self.buffer:
             timestamp, msg = self.buffer[0]
             age = (now - timestamp).to_sec()
 
             if age >= self.delay:
-                # DEBUG: Confirm we are releasing
-                rospy.loginfo_throttle(1, "Releasing message! Delay satisfied.")
-                
                 self.buffer.popleft() # Remove from queue
                 self.cmd_pub.publish(msg) 
             else:
-                # If oldest message isn't ready, nothing is
                 break
 
 if __name__ == '__main__':
