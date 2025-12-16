@@ -1,7 +1,7 @@
 <launch>
   <!-- ARGUMENTS -->
   <!-- Ensure this default path matches where you saved the map in Phase 1 -->
-  <arg name="map_file" default="~/chinmay/fetch_teleop_ws/my_maps/lab_map_2025-12-10-15-19-28.yaml" />
+  <arg name="map_file" default="/home/fetchuser/chinmay/fetch_teleop_ws/my_maps/lab_map_2025-12-10-15-19-28.yaml" />
   <arg name="mocap_ip" default="192.168.0.127" /> <!-- CHANGE THIS TO OPTITRACK IP -->
   <arg name="rigid_body" default="Fetch" />
 
