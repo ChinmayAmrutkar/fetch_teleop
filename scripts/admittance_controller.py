@@ -16,9 +16,9 @@ class AdmittanceController:
 
         # --- Physics Parameters ---
         # Higher Mass = Slower acceleration (Heavier feel)
-        self.VIRTUAL_MASS = rospy.get_param("~virtual_mass", 2.0)
+        self.VIRTUAL_MASS = rospy.get_param("~virtual_mass", 0.5)
         # Higher Damping = More resistance (Stops faster)
-        self.VIRTUAL_DAMPING = rospy.get_param("~virtual_damping", 4.0)
+        self.VIRTUAL_DAMPING = rospy.get_param("~virtual_damping", 1.0)
         self.MAX_LINEAR_VEL = rospy.get_param("~max_linear_vel", 1.0)
         self.MAX_ANGULAR_VEL = rospy.get_param("~max_angular_vel", 1.5)
 
