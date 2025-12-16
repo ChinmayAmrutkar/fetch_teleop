@@ -1,4 +1,5 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 import socket
 import struct
 import time
@@ -23,9 +24,9 @@ def start_server(
         [8-byte double: server_timestamp][4-byte uint: frame_size][frame_bytes]
     """
     # Open camera
-    cap = cv2.VideoCapture(camera_index) #  Use V4L2 backend for better compatibility on Linux
+    cap = cv2.VideoCapture(camera_index, cv2.CAP_V4L2) #  Use V4L2 backend for better compatibility on Linux
     if not cap.isOpened():
-        raise RuntimeError(f"Could not open camera index {camera_index}")
+        raise RuntimeError("Could not open camera index {camera_index}")
     # try:
     #     cap = cv2.VideoCapture(camera_index, cv2.CAP_V4L2) #  Use V4L2 backend for better compatibility on Linux
     #     if not cap.isOpened():
@@ -48,9 +49,9 @@ def start_server(
     server_sock.bind((host, port))
     server_sock.listen(1)
 
-    print(f"[SERVER] Listening on {host}:{port}...")
+    print("[SERVER] Listening on {host}:{port}...")
     conn, addr = server_sock.accept()
-    print(f"[SERVER] Client connected from {addr}")
+    print("[SERVER] Client connected from {addr}")
 
     encode_params = [int(cv2.IMWRITE_JPEG_QUALITY), jpeg_quality]
 
@@ -102,7 +103,7 @@ if __name__ == "__main__":
     start_server(
         host="0.0.0.0",
         port=5000,
-        camera_index=0,
+        camera_index=1,
         width=640,
         height=480,
         fps=30,

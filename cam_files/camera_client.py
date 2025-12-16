@@ -1,4 +1,5 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 import socket
 import struct
 import time
@@ -8,7 +9,7 @@ import cv2
 import numpy as np
 
 # Set the desired total delay (seconds) here:
-total_delay = 0.500  # e.g., 500 ms total latency
+total_delay = 0.001  # e.g., 500 ms total latency
 
 # If you already know the "base" end-to-end latency (capture+encode+network+decode),
 # you can use it just as a sanity check. The script will still use timestamps to
@@ -22,7 +23,7 @@ def recv_exact(sock, count):
     while len(buf) < count:
         chunk = sock.recv(count - len(buf))
         if not chunk:
-            raise ConnectionError("Socket closed while receiving data")
+            raise ValueError("Socket closed while receiving data")
         buf += chunk
     return buf
 
@@ -41,13 +42,12 @@ def start_client(server_host="127.0.0.1", server_port=5000):
     global total_delay
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    print(f"[CLIENT] Connecting to {server_host}:{server_port} ...")
+    print("[CLIENT] Connecting to {}:{} ...".format(server_host,server_port))
     sock.connect((server_host, server_port))
     print("[CLIENT] Connected")
 
     # Buffer: (server_ts, arrival_time_client, target_display_time, frame)
     frame_buffer = deque()
-
     # Estimate clock offset: client_time ≈ server_time + offset
     clock_offset = None
 
@@ -76,7 +76,7 @@ def start_client(server_host="127.0.0.1", server_port=5000):
             if clock_offset is None:
                 # client_time ≈ server_ts + offset → offset ≈ arrival_time_client - server_ts
                 clock_offset = arrival_time_client - server_ts
-                print(f"[CLIENT] Estimated clock offset: {clock_offset:.4f} s")
+                print("[CLIENT] Estimated clock offset: {clock_offset:.4f} s")
 
             # Server timestamp expressed in client time base
             ts_client = server_ts + clock_offset
@@ -117,9 +117,9 @@ def start_client(server_host="127.0.0.1", server_port=5000):
                 # --- Overlay text on frame ---
                 overlay = fr.copy()
                 text_lines = [
-                    f"Network: {net_ms:7.1f}   ms",
-                    f"Added:   {added_ms:7.1f}   ms",
-                    f"Total:   {total_ms:7.1f}   ms",
+                    "Network: {:7.1f}   ms".format(net_ms),
+                    "Added:   {:7.1f}   ms".format(added_ms),
+                    "Total:   {:7.1f}   ms".format(total_ms),
                 ]
 
                 y0 = 30
@@ -159,8 +159,10 @@ def start_client(server_host="127.0.0.1", server_port=5000):
                 if cv2.waitKey(1) & 0xFF == ord("q"):
                     return
 
-    except (ConnectionError, KeyboardInterrupt):
-        print("[CLIENT] Stopping...")
+    #except (ConnectionError, KeyboardInterrupt):
+    #    print("[CLIENT] Stopping...")
+    except Exception as e:
+        print(e)
     finally:
         sock.close()
         cv2.destroyAllWindows()
@@ -250,5 +252,5 @@ if __name__ == "__main__":
     # Replace with the actual IP of the server machine on your LAN
     #start_client(server_host="192.168.1.10", server_port=5000)
     # start_client(server_host="127.0.0.1", server_port=5000)
-    start_client(server_host="localhost", server_port=5000)
+    start_client(server_host="192.168.0.172", server_port=5000)
 
