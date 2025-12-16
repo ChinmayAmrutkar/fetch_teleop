@@ -3,85 +3,140 @@
 import rospy
 import csv
 import os
+import tf
 import math
-import datetime
-from geometry_msgs.msg import PoseWithCovarianceStamped, PoseStamped
+from tf.transformations import euler_from_quaternion, quaternion_from_euler
+from geometry_msgs.msg import PoseStamped
+from nav_msgs.msg import Path
 
-class PoseLogger:
+class MocapComparer:
     def __init__(self):
-        rospy.init_node('pose_logger')
+        rospy.init_node('pose_logger', anonymous=True)
 
-        # --- Parameters ---
+        # --- CONFIGURATION ---
+        # Allow these to be set via Launch file
         self.rigid_body_name = rospy.get_param('~rigid_body_name', 'Fetch')
+        self.mocap_topic = '/vrpn_client_node/{}/pose'.format(self.rigid_body_name)
+        
+        # Safe Directory Setup
         self.log_dir = os.path.expanduser("~/pose_logs")
-        
-        # Calibration Offsets (Optional: to align MoCap frame to Map frame manually)
-        self.offset_x = rospy.get_param('~offset_x', 0.0)
-        self.offset_y = rospy.get_param('~offset_y', 0.0)
-
-        # --- Data Holders ---
-        self.latest_amcl = None
-        self.latest_mocap = None
-
-        # --- Subscribers ---
-        # 1. AMCL (Estimated Position)
-        self.sub_amcl = rospy.Subscriber('/amcl_pose', PoseWithCovarianceStamped, self.amcl_callback)
-        
-        # 2. VRPN (Ground Truth)
-        # Topic format is typically /vrpn_client_node/<Name>/pose
-        mocap_topic = "/vrpn_client_node/{}/pose".format(self.rigid_body_name)
-        self.sub_mocap = rospy.Subscriber(mocap_topic, PoseStamped, self.mocap_callback)
-
-        # --- CSV Setup ---
         if not os.path.exists(self.log_dir):
             os.makedirs(self.log_dir)
             
-        timestamp = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-        self.filename = os.path.join(self.log_dir, "localization_test_{}.csv".format(timestamp))
-        
-        self.csv_file = open(self.filename, 'w')
-        self.writer = csv.writer(self.csv_file)
-        self.writer.writerow(["Timestamp", "AMCL_X", "AMCL_Y", "MoCap_X", "MoCap_Y", "Error_Distance"])
-        
-        rospy.loginfo("Logging poses to: {}".format(self.filename))
-        rospy.loginfo("Listening to MoCap topic: {}".format(mocap_topic))
+        self.log_file_path = os.path.join(self.log_dir, 'amcl_vs_mocap_log.csv')
+        self.amcl_path_log = os.path.join(self.log_dir, 'amcl_path.csv')
+        self.mocap_path_log = os.path.join(self.log_dir, 'mocap_path.csv')
 
-    def amcl_callback(self, msg):
-        self.latest_amcl = msg
-        self.log_data()
+        # Frames
+        self.map_frame = 'map'
+        self.base_frame = 'base_link' 
+
+        # --- TF LISTENER ---
+        self.tf_listener = tf.TransformListener()
+
+        # --- DATA STORAGE ---
+        self.latest_mocap_pose = None
+        self.initial_amcl_pose = None
+        self.initial_mocap_pose = None
+
+        # --- SUBSCRIBER ---
+        rospy.Subscriber(self.mocap_topic, PoseStamped, self.mocap_callback)
+        rospy.loginfo("Subscribing to Mocap on: %s", self.mocap_topic)
+
+        # --- PUBLISHERS (VIZ) ---
+        self.amcl_path_pub = rospy.Publisher('/viz_path_amcl', Path, queue_size=10)
+        self.mocap_path_pub = rospy.Publisher('/viz_path_mocap', Path, queue_size=10)
+        self.amcl_path_msg = Path()
+        self.mocap_path_msg = Path()
+        self.amcl_path_msg.header.frame_id = self.map_frame
+        self.mocap_path_msg.header.frame_id = self.map_frame
+
+        # --- CSV SETUP ---
+        self.csv_file = open(self.log_file_path, 'w')
+        self.csv_writer = csv.writer(self.csv_file)
+        self.csv_writer.writerow(['timestamp', 'amcl_x', 'amcl_y', 'mocap_x', 'mocap_y', 'error_dist'])
+        rospy.loginfo("Logging to: %s", self.log_file_path)
+
+        # --- LOOP ---
+        rospy.Timer(rospy.Duration(0.5), self.processing_loop)
 
     def mocap_callback(self, msg):
-        self.latest_mocap = msg
-        # We don't log here because MoCap is 100Hz+ (too fast). 
-        # We log only when AMCL updates (the data we are testing).
+        self.latest_mocap_pose = msg.pose
+        if self.initial_mocap_pose is None:
+            self.initial_mocap_pose = self.latest_mocap_pose
+            rospy.loginfo("Captured initial Mocap pose.")
 
-    def log_data(self):
-        # Only log if we have data from both sources
-        if self.latest_amcl and self.latest_mocap:
-            t = rospy.Time.now().to_sec()
-            
-            # AMCL Data
-            ax = self.latest_amcl.pose.pose.position.x
-            ay = self.latest_amcl.pose.pose.position.y
-            
-            # MoCap Data (Applied Offsets)
-            mx = self.latest_mocap.pose.position.x + self.offset_x
-            my = self.latest_mocap.pose.position.y + self.offset_y
-            
-            # Simple Euclidean Error
-            # NOTE: This assumes Map Frame and Optitrack Frame are aligned!
-            error = math.sqrt((ax - mx)**2 + (ay - my)**2)
-            
-            self.writer.writerow([t, ax, ay, mx, my, error])
-            
-            # Print status to terminal
-            rospy.loginfo_throttle(1, "AMCL: ({:.2f}, {:.2f}) | MoCap: ({:.2f}, {:.2f}) | Err: {:.3f}m".format(ax, ay, mx, my, error))
+    def processing_loop(self, event):
+        # 1. Get AMCL Position from TF
+        try:
+            (trans, rot) = self.tf_listener.lookupTransform(self.map_frame, self.base_frame, rospy.Time(0))
+            amcl_x, amcl_y = trans[0], trans[1]
+            _, _, amcl_yaw = euler_from_quaternion(rot)
+        except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+            return
 
-    def shutdown(self):
+        if self.latest_mocap_pose is None:
+            return
+
+        # 2. Capture Initial AMCL Pose
+        if self.initial_amcl_pose is None:
+            self.initial_amcl_pose = [amcl_x, amcl_y, amcl_yaw]
+            return
+
+        # 3. Get Current Mocap
+        mocap_x = self.latest_mocap_pose.position.x
+        mocap_y = self.latest_mocap_pose.position.y
+        _, _, mocap_yaw = euler_from_quaternion([
+            self.latest_mocap_pose.orientation.x, self.latest_mocap_pose.orientation.y,
+            self.latest_mocap_pose.orientation.z, self.latest_mocap_pose.orientation.w])
+        
+        # 4. Extract Initial Mocap Yaw
+        _, _, init_mocap_yaw = euler_from_quaternion([
+            self.initial_mocap_pose.orientation.x, self.initial_mocap_pose.orientation.y,
+            self.initial_mocap_pose.orientation.z, self.initial_mocap_pose.orientation.w])
+
+        # 5. NORMALIZE (Shift to 0,0)
+        # Shift Mocap
+        norm_mocap_x = mocap_x - self.initial_mocap_pose.position.x
+        norm_mocap_y = mocap_y - self.initial_mocap_pose.position.y
+        
+        # Shift AMCL
+        norm_amcl_x = amcl_x - self.initial_amcl_pose[0]
+        norm_amcl_y = amcl_y - self.initial_amcl_pose[1]
+
+        # 6. ROTATE AMCL to align with Mocap Heading
+        # Calculate offset between AMCL start heading and Mocap start heading
+        dyaw = init_mocap_yaw - self.initial_amcl_pose[2]
+        
+        # Apply rotation to AMCL vector
+        aligned_amcl_x = norm_amcl_x * math.cos(dyaw) - norm_amcl_y * math.sin(dyaw)
+        aligned_amcl_y = norm_amcl_x * math.sin(dyaw) + norm_amcl_y * math.cos(dyaw)
+
+        # 7. Error Calculation
+        error_dist = math.sqrt((aligned_amcl_x - norm_mocap_x)**2 + (aligned_amcl_y - norm_mocap_y)**2)
+
+        # 8. Log
+        self.csv_writer.writerow([rospy.Time.now().to_sec(), aligned_amcl_x, aligned_amcl_y, norm_mocap_x, norm_mocap_y, error_dist])
+        rospy.loginfo_throttle(1, "Err: {:.3f}m | AMCL: {:.2f} {:.2f} | MoCap: {:.2f} {:.2f}".format(error_dist, aligned_amcl_x, aligned_amcl_y, norm_mocap_x, norm_mocap_y))
+
+        # 9. Visualize Path (Aligned)
+        self.publish_path(self.amcl_path_pub, self.amcl_path_msg, aligned_amcl_x, aligned_amcl_y)
+        self.publish_path(self.mocap_path_pub, self.mocap_path_msg, norm_mocap_x, norm_mocap_y)
+
+    def publish_path(self, pub, path_msg, x, y):
+        pose = PoseStamped()
+        pose.header.stamp = rospy.Time.now()
+        pose.header.frame_id = self.map_frame
+        pose.pose.position.x = x
+        pose.pose.position.y = y
+        pose.pose.orientation.w = 1.0
+        path_msg.poses.append(pose)
+        path_msg.header.stamp = rospy.Time.now()
+        pub.publish(path_msg)
+
+    def run(self):
+        rospy.spin()
         self.csv_file.close()
-        rospy.loginfo("Log file closed.")
 
 if __name__ == '__main__':
-    node = PoseLogger()
-    rospy.on_shutdown(node.shutdown)
-    rospy.spin()
+    MocapComparer().run()
