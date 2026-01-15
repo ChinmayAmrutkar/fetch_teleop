@@ -2,49 +2,70 @@
   <arg name="method" default="twist" />
   
   <!-- CONFIGURATION ARGS -->
-  <arg name="delay_time" default="1.0" /> <!-- Seconds of delay for BOTH controls and camera -->
-  <arg name="camera_ip" default="192.168.0.172" /> <!-- External camera server IP -->
+  <arg name="delay_time" default="1.0" /> 
+  <arg name="camera_ip" default="192.168.0.172" />
+  
+  <!-- NEW: Input Selection (keyboard or joystick) -->
+  <arg name="input_device" default="joystick" /> 
 
-  <!-- METHOD A: Standard Twist Filter (No Delay) -->
-  <group if="$(eval arg('method') == 'twist')">
-    <node pkg="fetch_teleop" type="safety_controller_twist.py" name="safety_twist" output="screen" />
+  <!-- ============================================== -->
+  <!-- INPUT SOURCE SELECTION -->
+  <!-- ============================================== -->
+  
+  <!-- Option 1: Keyboard -->
+  <group if="$(eval arg('input_device') == 'keyboard')">
     <node pkg="teleop_twist_keyboard" type="teleop_twist_keyboard.py" name="teleop_keyboard" output="screen">
-      <remap from="cmd_vel" to="cmd_vel_teleop" />
+      <remap from="cmd_vel" to="cmd_vel_raw" />
     </node>
   </group>
 
-  <!-- METHOD B: Runstop Trigger -->
-  <group if="$(eval arg('method') == 'runstop')">
-    <node pkg="fetch_teleop" type="safety_controller_runstop.py" name="safety_runstop" output="screen" />
-    <node pkg="teleop_twist_keyboard" type="teleop_twist_keyboard.py" name="teleop_keyboard" output="screen">
+  <!-- Option 2: Joystick (ONN Controller) -->
+  <group if="$(eval arg('input_device') == 'joystick')">
+    <!-- 1. The Driver (Reads /dev/input/js0) -->
+    <node pkg="joy" type="joy_node" name="joy_driver">
+      <param name="dev" value="/dev/input/js0" />
+      <param name="deadzone" value="0.1" /> <!-- Ignore small stick drift -->
+      <param name="autorepeat_rate" value="20" /> <!-- Hz -->
     </node>
+
+    <!-- 2. The Translator (Maps buttons to Twist) -->
+    <node pkg="fetch_teleop" type="joystick_translator.py" name="joy_trans" output="screen">
+        <!-- Mappings for ONN/Xbox Controller -->
+        <param name="axis_linear" value="4" /> <!-- Right Stick Vertical -->
+        <param name="axis_angular" value="0" /> <!-- Left Stick Horizontal -->
+        <param name="deadman_button" value="4" /> <!-- LB Button -->
+    </node>
+  </group>
+
+  <!-- ============================================== -->
+  <!-- SAFETY & DELAY PIPELINE (Shared) -->
+  <!-- ============================================== -->
+
+  <!-- METHOD A: Standard Twist Filter -->
+  <group if="$(eval arg('method') == 'twist')">
+    <node pkg="fetch_teleop" type="safety_controller_twist.py" name="safety_twist" output="screen" />
+    <!-- Bridge raw input to teleop input since no delay here -->
+    <node pkg="topic_tools" type="relay" name="input_relay" args="/cmd_vel_raw /cmd_vel_teleop" />
   </group>
 
   <!-- METHOD C: DELAY + ADMITTANCE + CAMERA EXPERIMENT -->
   <group if="$(eval arg('method') == 'delayed')">
     
-    <!-- 4. The Safety Node (Listens to /cmd_vel_teleop) -->
+    <!-- 4. Safety Node -->
     <node pkg="fetch_teleop" type="safety_controller_twist.py" name="safety_twist" output="screen" />
 
-    <!-- 3. The Admittance Node (Listens to /cmd_vel_delayed, Publishes /cmd_vel_teleop) -->
+    <!-- 3. Admittance Node -->
     <node pkg="fetch_teleop" type="admittance_controller.py" name="admittance_node" output="screen" />
 
-    <!-- 2. The Delay Node (Listens to raw, Publishes /cmd_vel_delayed) -->
-    <!-- We pass the 'delay' param here -->
+    <!-- 2. Delay Node -->
     <node pkg="fetch_teleop" type="cmd_delay.py" name="delay_node" output="screen">
         <param name="delay" value="$(arg delay_time)" />
     </node>
 
-    <!-- 2.5 External Camera Node -->
-    <!-- We pass the 'delay' and 'server_host' params here -->
+    <!-- 2.5 External Camera -->
     <node pkg="fetch_teleop" type="external_camera.py" name="external_camera_node" output="screen">
         <param name="delay" value="$(arg delay_time)" />
         <param name="server_host" value="$(arg camera_ip)" />
-    </node>
-
-    <!-- 1. The Keyboard (Publishes to /cmd_vel_raw) -->
-    <node pkg="teleop_twist_keyboard" type="teleop_twist_keyboard.py" name="teleop_keyboard" output="screen">
-      <remap from="cmd_vel" to="cmd_vel_raw" />
     </node>
 
   </group>

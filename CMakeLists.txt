@@ -24,5 +24,6 @@ catkin_install_python(PROGRAMS
   scripts/pose_logger.py
   scripts/external_camera.py
   scripts/experiment_logger.py
+  scripts/joystick_translator.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
