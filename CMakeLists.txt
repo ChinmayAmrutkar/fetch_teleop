@@ -23,5 +23,6 @@ catkin_install_python(PROGRAMS
   scripts/save_map.py
   scripts/pose_logger.py
   scripts/external_camera.py
+  scripts/experiment_logger.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
