@@ -25,7 +25,7 @@ class JoystickTranslator:
         self.pub = rospy.Publisher('/cmd_vel_raw', Twist, queue_size=1)
 
         # --- SUBSCRIBER ---
-        rospy.Subscriber("joy", Joy, self.callback)
+        rospy.Subscriber("my_joy", Joy, self.callback)
 
         rospy.loginfo("Joystick Translator Started.")
         rospy.loginfo("Deadman: Button %d | Linear: Axis %d | Angular: Axis %d", 
