@@ -18,7 +18,7 @@ class MocapComparer:
         self.mocap_topic = '/vrpn_client_node/{}/pose'.format(self.rigid_body_name)
         
         # --- PATHS ---
-        self.log_dir = os.path.expanduser("/home/chinmay/fetch_teleop_ws/pose_logs")
+        self.log_dir = os.path.expanduser("~/chinmay/fetch_teleop_ws/pose_logs")
         if not os.path.exists(self.log_dir):
             os.makedirs(self.log_dir)
 
