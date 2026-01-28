@@ -68,6 +68,11 @@ def start_client(server_host="192.168.0.172", server_port=5000):
             if frame is None:
                 continue
 
+            # --- ROTATION FIX ---
+            # Rotate 90 degrees Clockwise because camera is mounted sideways
+            # Change to cv2.ROTATE_90_COUNTERCLOCKWISE if it is upside down
+            frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
+
             # --- Clock Sync ---
             if clock_offset is None:
                 clock_offset = arrival_time_client - server_ts

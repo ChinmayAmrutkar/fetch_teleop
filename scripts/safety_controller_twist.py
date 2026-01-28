@@ -10,7 +10,7 @@ class SafetyControllerTwist:
     def __init__(self):
         rospy.init_node('fetch_safety_twist', anonymous=False)
 
-        self.stop_distance = 0.6
+        self.stop_distance = 0.3
         self.safe_to_move_forward = True
 
         # Listen to the (potentially delayed) command stream
