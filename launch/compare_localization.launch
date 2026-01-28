@@ -5,14 +5,25 @@
   <arg name="mocap_ip" default="192.168.0.127" /> <!-- CHANGE THIS TO OPTITRACK IP -->
   <arg name="rigid_body" default="Fetch" />
 
-  <!-- 1. Fetch Navigation Stack -->
-  <!-- REPLACED: Instead of calling map_server and amcl separately, we use the standard Fetch launcher. -->
-  <!-- This starts: Map Server, AMCL, and Move Base -->
+  <!-- NEW: CALIBRATION ARGUMENTS (Update these after running calibrate_frames.py) -->
+  <arg name="tf_x" default="0.0" />
+  <arg name="tf_y" default="0.0" />
+  <arg name="tf_z" default="0.0" />
+  <arg name="tf_yaw" default="0.0" />
+
+  <!-- 1. STATIC TRANSFORM (The Glue) -->
+  <node pkg="tf" type="static_transform_publisher" name="world_to_map_broadcaster" 
+        args="$(arg tf_x) $(arg tf_y) $(arg tf_z) $(arg tf_yaw) 0 0 world map 100" />
+
+  <!-- 2. Map Server -->
+  <node name="map_server" pkg="map_server" type="map_server" args="$(arg map_file)" />
+
+  <!-- 3. AMCL (Standard Fetch Config) -->
   <include file="$(find fetch_navigation)/launch/fetch_nav.launch">
     <arg name="map_file" value="$(arg map_file)" />
   </include>
 
-  <!-- 2. VRPN Client (Optitrack) -->
+  <!-- 4. VRPN Client -->
   <node pkg="vrpn_client_ros" type="vrpn_client_node" name="vrpn_client_node" output="screen">
     <rosparam subst_value="true">
       server: $(arg mocap_ip)
@@ -25,15 +36,15 @@
     </rosparam>
   </node>
 
-  <!-- 3. Pose Logger (Analysis) -->
+  <!-- 5. Pose Logger (Visualization Paths) -->
   <node pkg="fetch_teleop" type="pose_logger.py" name="pose_logger" output="screen">
     <param name="rigid_body_name" value="$(arg rigid_body)" />
-    <!-- Tunable offsets if frames aren't perfectly aligned -->
-    <param name="offset_x" value="0.0" />
-    <param name="offset_y" value="0.0" />
   </node>
-  
-  <!-- NOTE: In a separate terminal, run: 
-       roslaunch fetch_teleop safety.launch method:=delayed 
-  -->
+
+  <!-- 6. EXPERIMENT LOGGER (Data Recording) -->
+  <node pkg="fetch_teleop" type="experiment_logger.py" name="experiment_data_logger" output="screen">
+      <param name="max_time" value="120.0" />
+      <param name="rigid_body_name" value="$(arg rigid_body)" />
+  </node>
+
 </launch>
