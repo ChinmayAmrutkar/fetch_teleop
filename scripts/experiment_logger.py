@@ -21,7 +21,6 @@ class ExperimentLogger:
         self.rigid_body_name = rospy.get_param('~rigid_body_name', 'Fetch')
         
         # --- File Setup ---
-        # 1. Setup Directory
         requested_path = "/home/chinmay/fetch_teleop_ws/logs/"
         if os.path.exists(os.path.dirname(requested_path)):
             self.log_dir = requested_path
@@ -30,7 +29,6 @@ class ExperimentLogger:
             if not os.path.exists(self.log_dir):
                 os.makedirs(self.log_dir)
 
-        # 2. Generate Base Filenames
         ts = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
         self.files = {
             'A_mocap': os.path.join(self.log_dir, "A_mocap_{}.csv".format(ts)),
@@ -39,27 +37,22 @@ class ExperimentLogger:
             'C2_sync_fixed': os.path.join(self.log_dir, "C2_sync_fixed_{}.csv".format(ts))
         }
 
-        # 3. Initialize CSV Writers
         self.writers = {}
         self.handles = {}
         
-        # Headers
         headers_common = ["Time_Sec", "Input_JX", "Input_JY", "Event_Msg"]
         
-        # File A: MoCap High Freq
         self.init_csv('A_mocap', headers_common + [
             "MoCap_X", "MoCap_Y", "MoCap_Z", "MoCap_Theta",
             "Vel_Lin_Raw", "Vel_Ang_Raw",
             "Vel_Lin_Smooth", "Vel_Ang_Smooth"
         ])
         
-        # File B: AMCL (Event based on AMCL update)
         self.init_csv('B_amcl', headers_common + [
             "AMCL_X", "AMCL_Y", "AMCL_Z", "AMCL_Theta",
             "Odom_Vel_Lin", "Odom_Vel_Ang" 
         ])
         
-        # File C1 & C2: Synced
         headers_sync = headers_common + [
             "AMCL_X", "AMCL_Y", "AMCL_Theta",
             "MoCap_X", "MoCap_Y", "MoCap_Theta",
@@ -73,34 +66,33 @@ class ExperimentLogger:
         self.start_time = rospy.Time.now()
         self.experiment_active = True
         self.safety_triggered = False
+        self.goal_reached = False # NEW STATE
         
-        # Data Containers
         self.current_input = Twist()
-        self.latest_odom_twist = Twist() # From /odom
-        self.latest_amcl_pose = None # [x, y, z, theta]
-        self.latest_mocap_pose = None # [x, y, z, theta]
+        self.latest_odom_twist = Twist()
+        self.latest_amcl_pose = None
+        self.latest_mocap_pose = None
         
-        # MoCap Derivatives
         self.last_mocap_pos = None
         self.last_mocap_time = None
         self.last_mocap_theta = 0.0
         
-        # Smoothing Buffers (Window Size 10)
         self.vel_lin_buffer = deque(maxlen=10)
         self.vel_ang_buffer = deque(maxlen=10)
-        self.latest_mocap_vel_smooth = [0.0, 0.0] # [Lin, Ang]
+        self.latest_mocap_vel_smooth = [0.0, 0.0]
 
         # --- Subscribers ---
         rospy.Subscriber('/cmd_vel_raw', Twist, self.input_callback)
         rospy.Subscriber('/safety_status', Bool, self.safety_callback)
+        # NEW: Listen for Goal Status
+        rospy.Subscriber('/goal_reached', Bool, self.goal_callback)
+        
         rospy.Subscriber('/odom', Odometry, self.odom_callback)
         rospy.Subscriber('/amcl_pose', PoseWithCovarianceStamped, self.amcl_callback)
         
         mocap_topic = '/vrpn_client_node/{}/pose'.format(self.rigid_body_name)
         rospy.Subscriber(mocap_topic, PoseStamped, self.mocap_callback)
 
-        # --- Timers ---
-        # Fixed Rate Logging (20Hz) for File C2
         rospy.Timer(rospy.Duration(0.05), self.fixed_rate_loop)
 
         rospy.loginfo("Experiment Logger Initialized. 4 Logs generating in: {}".format(self.log_dir))
@@ -119,18 +111,20 @@ class ExperimentLogger:
     def safety_callback(self, msg):
         self.safety_triggered = msg.data
 
+    def goal_callback(self, msg):
+        self.goal_reached = msg.data
+        if self.goal_reached and self.experiment_active:
+            rospy.loginfo_once("LOGGER: Goal Reached Detected! Marking logs.")
+
     def odom_callback(self, msg):
-        # We trust Odom for velocity of the AMCL file
         self.latest_odom_twist = msg.twist.twist
 
     def amcl_callback(self, msg):
-        # 1. Parse AMCL
         p = msg.pose.pose.position
         o = msg.pose.pose.orientation
         _, _, theta = euler_from_quaternion([o.x, o.y, o.z, o.w])
         self.latest_amcl_pose = [p.x, p.y, p.z, theta]
 
-        # 2. Write to File B (AMCL Timeseries)
         self.write_row('B_amcl', [
             self.get_time(), 
             self.current_input.linear.x, self.current_input.angular.z,
@@ -139,8 +133,6 @@ class ExperimentLogger:
             self.latest_odom_twist.linear.x, self.latest_odom_twist.angular.z
         ])
 
-        # 3. Write to File C1 (Strict Sync - Triggered by AMCL update)
-        # We grab the closest available MoCap data
         if self.latest_mocap_pose is not None:
             self.write_row('C1_sync_event', self.get_sync_row())
 
@@ -150,31 +142,25 @@ class ExperimentLogger:
         o = msg.pose.orientation
         _, _, theta = euler_from_quaternion([o.x, o.y, o.z, o.w])
         
-        # Calculate Velocities
         vel_lin_raw = 0.0
         vel_ang_raw = 0.0
         
         if self.last_mocap_pos is not None:
             dt = current_time - self.last_mocap_time
-            if dt > 0.0001: # Avoid division by zero
-                # Linear Euclidean Distance
+            if dt > 0.0001:
                 dist = math.sqrt((p.x - self.last_mocap_pos.x)**2 + (p.y - self.last_mocap_pos.y)**2)
                 vel_lin_raw = dist / dt
                 
-                # Angular Shortest Path
-                # Handle wrapping -pi to pi
                 diff = theta - self.last_mocap_theta
                 while diff > math.pi: diff -= 2*math.pi
                 while diff < -math.pi: diff += 2*math.pi
                 vel_ang_raw = diff / dt
 
-        # Update History
         self.last_mocap_pos = p
         self.last_mocap_time = current_time
         self.last_mocap_theta = theta
         self.latest_mocap_pose = [p.x, p.y, p.z, theta]
 
-        # Smoothing (Moving Average)
         self.vel_lin_buffer.append(vel_lin_raw)
         self.vel_ang_buffer.append(vel_ang_raw)
         
@@ -182,7 +168,6 @@ class ExperimentLogger:
         vel_ang_smooth = sum(self.vel_ang_buffer) / len(self.vel_ang_buffer)
         self.latest_mocap_vel_smooth = [vel_lin_smooth, vel_ang_smooth]
 
-        # Write to File A (MoCap Timeseries)
         self.write_row('A_mocap', [
             self.get_time(),
             self.current_input.linear.x, self.current_input.angular.z,
@@ -193,20 +178,16 @@ class ExperimentLogger:
         ])
 
     def fixed_rate_loop(self, event):
-        # Write to File C2 (Fixed Rate Sync)
         if self.latest_amcl_pose is not None and self.latest_mocap_pose is not None:
              self.write_row('C2_sync_fixed', self.get_sync_row())
 
-    # --- Helpers ---
     def get_sync_row(self):
-        # Helper to construct the synced row for C1 and C2
-        # Order: Common, AMCL(4), MoCap(3), OdomVel(2), MoCapVel(2)
         return [
             self.get_time(),
             self.current_input.linear.x, self.current_input.angular.z,
             self.get_event(),
-            self.latest_amcl_pose[0], self.latest_amcl_pose[1], self.latest_amcl_pose[3], # AMCL X,Y,Theta
-            self.latest_mocap_pose[0], self.latest_mocap_pose[1], self.latest_mocap_pose[3], # MoCap X,Y,Theta
+            self.latest_amcl_pose[0], self.latest_amcl_pose[1], self.latest_amcl_pose[3],
+            self.latest_mocap_pose[0], self.latest_mocap_pose[1], self.latest_mocap_pose[3],
             self.latest_odom_twist.linear.x, self.latest_odom_twist.angular.z,
             self.latest_mocap_vel_smooth[0], self.latest_mocap_vel_smooth[1]
         ]
@@ -216,6 +197,7 @@ class ExperimentLogger:
 
     def get_event(self):
         elapsed = (rospy.Time.now() - self.start_time).to_sec()
+        if self.goal_reached: return "SUCCESS_GOAL_REACHED"
         if self.safety_triggered: return "SAFETY_STOP"
         if elapsed > self.max_time: return "MAX_TIME"
         return "RUNNING"
@@ -226,7 +208,6 @@ class ExperimentLogger:
 
     def shutdown_hook(self):
         # Log final manual stop event to all files
-        final_row_common = [self.get_time(), 0, 0, "GOAL_REACHED_MANUAL"]
         # (Simplified logic: just closing files to ensure data flush)
         for key in self.handles:
             self.handles[key].close()
