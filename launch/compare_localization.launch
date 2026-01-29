@@ -1,22 +1,19 @@
 <launch>
   <!-- ARGUMENTS -->
   <!-- Ensure this default path matches where you saved the map in Phase 1 -->
-  <arg name="map_file" default="/home/fetchuser/chinmay/fetch_teleop_ws/my_maps/lab_map_2026-01-15-15-07-26.yaml" />
+  <arg name="map_file" default="/home/fetchuser/chinmay/fetch_teleop_ws/my_maps/map_condition_1.yaml" />
   <arg name="mocap_ip" default="192.168.0.127" /> <!-- CHANGE THIS TO OPTITRACK IP -->
   <arg name="rigid_body" default="Fetch" />
 
   <!-- NEW: CALIBRATION ARGUMENTS (Update these after running calibrate_frames.py) -->
-  <arg name="tf_x" default="0.0" />
-  <arg name="tf_y" default="0.0" />
-  <arg name="tf_z" default="0.0" />
-  <arg name="tf_yaw" default="0.0" />
+  <arg name="tf_x" default="1.4941" />
+  <arg name="tf_y" default="2.5241" />
+  <arg name="tf_z" default="0.5045" />
+  <arg name="tf_yaw" default="-1.8502" />
 
   <!-- 1. STATIC TRANSFORM (The Glue) -->
   <node pkg="tf" type="static_transform_publisher" name="world_to_map_broadcaster" 
         args="$(arg tf_x) $(arg tf_y) $(arg tf_z) $(arg tf_yaw) 0 0 world map 100" />
-
-  <!-- 2. Map Server -->
-  <node name="map_server" pkg="map_server" type="map_server" args="$(arg map_file)" />
 
   <!-- 3. AMCL (Standard Fetch Config) -->
   <include file="$(find fetch_navigation)/launch/fetch_nav.launch">
