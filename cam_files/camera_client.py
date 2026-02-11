@@ -45,7 +45,7 @@ is_collision_topic = "/safety_status"
 frame_rotation = 90.0  # degrees
 
 # Scaling factor for displayed frames. Must be > 0.
-frame_scaling = 2.0  # 1.0 = original size; 0.5 = half size; 2.0 = double size
+frame_scaling = 0.5  # 1.0 = original size; 0.5 = half size; 2.0 = double size
 
 # Canvas aspect ratio to the right (width : height). For 3:2 set 3/2.
 right_canvas_aspect = 3.0 / 2.0
@@ -68,13 +68,13 @@ _flags_lock = threading.Lock()
 _goal_reached_flag = False
 _collision_flag = False
 
-def set_goal_flag(value: bool):
+def set_goal_flag(value):
     """Thread-safe setter for goal flag (internal)."""
     global _goal_reached_flag
     with _flags_lock:
         _goal_reached_flag = bool(value)
 
-def set_collision_flag(value: bool):
+def set_collision_flag(value):
     """Thread-safe setter for collision flag (internal)."""
     global _collision_flag
     with _flags_lock:
@@ -106,7 +106,7 @@ def _on_collision_msg(msg):
 # -------------------------
 # Image transform helpers
 # -------------------------
-def rotate_frame(frame: np.ndarray, degrees: float) -> np.ndarray:
+def rotate_frame(frame, degrees):
     """
     Rotate an image about its center by `degrees`.
     Keeps the same output size (may crop corners).
@@ -120,7 +120,7 @@ def rotate_frame(frame: np.ndarray, degrees: float) -> np.ndarray:
     rotated = cv2.warpAffine(frame, M, (w, h), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
     return rotated
 
-def scale_frame(frame: np.ndarray, scale: float) -> np.ndarray:
+def scale_frame(frame, scale):
     """
     Scale an image by `scale`. scale must be positive.
     """
@@ -133,7 +133,7 @@ def scale_frame(frame: np.ndarray, scale: float) -> np.ndarray:
     new_h = max(1, int(round(h * scale)))
     return cv2.resize(frame, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
 
-def make_right_canvas_for_height(height: int, aspect: float = right_canvas_aspect) -> np.ndarray:
+def make_right_canvas_for_height(height, aspect = right_canvas_aspect):
     """
     Create a blank (white) canvas that matches the given height and has the
     specified aspect ratio width:height. Returns an HxW x3 uint8 array.
@@ -146,7 +146,7 @@ def make_right_canvas_for_height(height: int, aspect: float = right_canvas_aspec
     cv2.rectangle(canvas, (0, 0), (canvas_w - 1, height - 1), (200, 200, 200), 1)
     return canvas
 
-def apply_overlay_tint(frame: np.ndarray, color: tuple, alpha: float) -> np.ndarray:
+def apply_overlay_tint(frame, color, alpha):
     """
     Apply a semi-transparent color overlay across the whole frame.
     - color is BGR tuple of ints (0-255)
@@ -165,7 +165,7 @@ def apply_overlay_tint(frame: np.ndarray, color: tuple, alpha: float) -> np.ndar
 # -------------------------
 # Networking helper
 # -------------------------
-def recv_exact(sock: socket.socket, count: int) -> bytes:
+def recv_exact(sock, count):
     """Receive exactly `count` bytes from the socket, raise on EOF."""
     buf = b""
     while len(buf) < count:
@@ -181,7 +181,6 @@ def recv_exact(sock: socket.socket, count: int) -> bytes:
 def start_client(
     server_host="192.168.0.172",
     server_port=5000,
-    *,
     total_delay_override=None,
     goal_reached_topic_name=None,
     is_collision_topic_name=None,
@@ -224,7 +223,7 @@ def start_client(
         rospy.init_node("cam_client_display", anonymous=True, disable_signals=True)
         rospy.Subscriber(goal_reached_topic, Bool, _on_goal_msg, queue_size=1)
         rospy.Subscriber(is_collision_topic, Bool, _on_collision_msg, queue_size=1)
-        print(f"[CLIENT] Subscribed to ROS topics: {goal_reached_topic}, {is_collision_topic}")
+        print ("[CLIENT] Subscribed to ROS topics: {}, {}".format(goal_reached_topic,is_collision_topic))
     elif use_ros and not ROS_AVAILABLE:
         print("[CLIENT] WARNING: rospy not available. Running without ROS overlays.")
 
@@ -255,7 +254,7 @@ def start_client(
             # Clock sync on first frame
             if clock_offset is None:
                 clock_offset = arrival_time_client - server_ts
-                print(f"[CLIENT] Estimated clock offset: {clock_offset:.4f} s")
+                print("[CLIENT] Estimated clock offset: {:.4f} s".format(clock_offset))
 
             ts_client = server_ts + clock_offset
             target_display_time = ts_client + total_delay
@@ -353,7 +352,7 @@ def start_client(
     except KeyboardInterrupt:
         print("[CLIENT] KeyboardInterrupt - shutting down")
     except Exception as e:
-        print(f"[CLIENT] Exception: {e}")
+        print("[CLIENT] Exception: {}".format(e))
     finally:
         try:
             sock.close()
@@ -404,7 +403,7 @@ def _unit_tests_quick():
 # -------------------------
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Delayed camera client with ROS overlays")
-    parser.add_argument("--host", default="127.0.0.1", help="camera server hostname")
+    parser.add_argument("--host", default="192.168.0.172", help="camera server hostname")
     parser.add_argument("--port", type=int, default=5000, help="camera server port")
     parser.add_argument("--no-ros", action="store_true", help="run without attempting to use ROS (overrides auto-detect)")
     parser.add_argument("--rotation", type=float, default=None, help="frame rotation degrees (overrides module value)")
