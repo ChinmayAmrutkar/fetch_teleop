@@ -1,15 +1,15 @@
 <launch>
   <!-- ARGUMENTS -->
   <!-- Ensure this default path matches where you saved the map in Phase 1 -->
-  <arg name="map_file" default="/home/fetchuser/chinmay/fetch_teleop_ws/my_maps/map_condition_1.yaml" />
+  <arg name="map_file" default="/home/fetchuser/chinmay/fetch_teleop_ws/my_maps/map_condition_2.yaml" />
   <arg name="mocap_ip" default="192.168.0.127" /> <!-- CHANGE THIS TO OPTITRACK IP -->
   <arg name="rigid_body" default="Fetch" />
 
   <!-- NEW: CALIBRATION ARGUMENTS (Update these after running calibrate_frames.py) -->
-  <arg name="tf_x" default="1.4941" />
-  <arg name="tf_y" default="2.5241" />
-  <arg name="tf_z" default="0.5045" />
-  <arg name="tf_yaw" default="-1.8502" />
+  <arg name="tf_x" default="1.0 097" />
+  <arg name="tf_y" default="3.0167" />
+  <arg name="tf_z" default="0.5014" />
+  <arg name="tf_yaw" default="-1.6841" />
 
   <!-- 1. STATIC TRANSFORM (The Glue) -->
   <node pkg="tf" type="static_transform_publisher" name="world_to_map_broadcaster" 
@@ -39,7 +39,7 @@
   </node>
 
   <!-- 6. EXPERIMENT LOGGER (Data Recording) -->
-  <node pkg="fetch_teleop" type="experiment_logger.py" name="experiment_data_logger" output="screen">
+  <node pkg="fetch_teleop" type="experiment_logger.py" name="experiment_logger" output="screen">
       <param name="max_time" value="120.0" />
       <param name="rigid_body_name" value="$(arg rigid_body)" />
   </node>

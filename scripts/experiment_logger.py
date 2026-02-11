@@ -21,7 +21,7 @@ class ExperimentLogger:
         self.rigid_body_name = rospy.get_param('~rigid_body_name', 'Fetch')
         
         # --- File Setup ---
-        requested_path = "/home/chinmay/fetch_teleop_ws/logs/"
+        requested_path = "/home/fetchuser/chinmay/fetch_teleop_ws/logs/"
         if os.path.exists(os.path.dirname(requested_path)):
             self.log_dir = requested_path
         else:
@@ -81,19 +81,30 @@ class ExperimentLogger:
         self.vel_ang_buffer = deque(maxlen=10)
         self.latest_mocap_vel_smooth = [0.0, 0.0]
 
-        # --- Subscribers ---
-        rospy.Subscriber('/cmd_vel_raw', Twist, self.input_callback)
-        rospy.Subscriber('/safety_status', Bool, self.safety_callback)
-        # NEW: Listen for Goal Status
-        rospy.Subscriber('/goal_reached', Bool, self.goal_callback)
+        # # --- Subscribers ---
+        # rospy.Subscriber('/cmd_vel_raw', Twist, self.input_callback)
+        # rospy.Subscriber('/safety_status', Bool, self.safety_callback)
+        # # NEW: Listen for Goal Status
+        # rospy.Subscriber('/goal_reached', Bool, self.goal_callback)
         
-        rospy.Subscriber('/odom', Odometry, self.odom_callback)
-        rospy.Subscriber('/amcl_pose', PoseWithCovarianceStamped, self.amcl_callback)
+        # rospy.Subscriber('/odom', Odometry, self.odom_callback)
+        # rospy.Subscriber('/amcl_pose', PoseWithCovarianceStamped, self.amcl_callback)
         
-        mocap_topic = '/vrpn_client_node/{}/pose'.format(self.rigid_body_name)
-        rospy.Subscriber(mocap_topic, PoseStamped, self.mocap_callback)
+        
+        # rospy.Subscriber(mocap_topic, PoseStamped, self.mocap_callback)
 
-        rospy.Timer(rospy.Duration(0.05), self.fixed_rate_loop)
+        # rospy.Timer(rospy.Duration(0.05), self.fixed_rate_loop)
+        
+        self.sub_input = rospy.Subscriber('/cmd_vel_raw', Twist, self.input_callback)
+        self.sub_safety = rospy.Subscriber('/safety_status', Bool, self.safety_callback)
+        self.sub_goal = rospy.Subscriber('/goal_reached', Bool, self.goal_callback)
+        self.sub_odom = rospy.Subscriber('/odom', Odometry, self.odom_callback)
+        self.sub_amcl = rospy.Subscriber('/amcl_pose', PoseWithCovarianceStamped, self.amcl_callback)
+        mocap_topic = '/vrpn_client_node/{}/pose'.format(self.rigid_body_name)
+        self.sub_mocap = rospy.Subscriber(mocap_topic, PoseStamped, self.mocap_callback)
+
+        self.timer = rospy.Timer(rospy.Duration(0.05), self.fixed_rate_loop)
+
 
         rospy.loginfo("Experiment Logger Initialized. 4 Logs generating in: {}".format(self.log_dir))
 
@@ -203,15 +214,41 @@ class ExperimentLogger:
         return "RUNNING"
 
     def write_row(self, key, data):
-        if not self.experiment_active: return
-        self.writers[key].writerow(data)
+        if not self.experiment_active:
+            return
+
+        if key in self.handles and not self.handles[key].closed:
+            self.writers[key].writerow(data)
+
 
     def shutdown_hook(self):
-        # Log final manual stop event to all files
-        # (Simplified logic: just closing files to ensure data flush)
+        rospy.loginfo("Shutting down node and saving paths...")
+
+        # Stop logging immediately
+        self.experiment_active = False
+
+        # Stop timer
+        if hasattr(self, 'timer'):
+            self.timer.shutdown()
+
+        # Unregister subscribers
+        for sub in [
+            self.sub_input,
+            self.sub_safety,
+            self.sub_goal,
+            self.sub_odom,
+            self.sub_amcl,
+            self.sub_mocap
+        ]:
+            sub.unregister()
+
+        # Close files safely
         for key in self.handles:
-            self.handles[key].close()
+            if not self.handles[key].closed:
+                self.handles[key].close()
+
         rospy.loginfo("Experiment Logs Saved.")
+
 
 if __name__ == '__main__':
     node = ExperimentLogger()
