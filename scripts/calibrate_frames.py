@@ -11,7 +11,7 @@ class FrameCalibrator:
         rospy.init_node('frame_calibrator')
 
         # --- CONFIGURATION ---
-        self.rigid_body_name = rospy.get_param('~rigid_body_name', 'Fetch')
+        self.rigid_body_name = rospy.get_param('~rigid_body_name', 'Fetch8')
         self.mocap_topic = '/vrpn_client_node/{}/pose'.format(self.rigid_body_name)
         
         self.amcl_pose = None

@@ -11,7 +11,7 @@ class ExperimentSupervisor:
         rospy.init_node('experiment_supervisor')
 
         # --- CONFIGURATION ---
-        self.robot_name = rospy.get_param('~robot_name', 'Fetch')
+        self.robot_name = rospy.get_param('~robot_name', 'Fetch8')
         self.goal_name = rospy.get_param('~goal_name', 'Goal')
         self.goal_tolerance = rospy.get_param('~goal_tolerance', 0.3)
         

@@ -45,7 +45,9 @@ is_collision_topic = "/safety_status"
 frame_rotation = 90.0  # degrees
 
 # Scaling factor for displayed frames. Must be > 0.
-frame_scaling = 0.5  # 1.0 = original size; 0.5 = half size; 2.0 = double size
+# frame_scaling = 0.5  # 1.0 = original size; 0.5 = half size; 2.0 = double size
+
+frame_scaling = 1  # 1.0 = original size; 0.5 = half size; 2.0 = double size
 
 # Canvas aspect ratio to the right (width : height). For 3:2 set 3/2.
 right_canvas_aspect = 3.0 / 2.0
