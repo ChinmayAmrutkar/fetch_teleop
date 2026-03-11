@@ -1,9 +1,9 @@
 <launch>
   <!-- ARGUMENTS -->
   <!-- Ensure this default path matches where you saved the map in Phase 1 -->
-  <arg name="map_file" default="/home/fetchuser/chinmay/fetch_teleop_ws/my_maps/map_condition_2.yaml" />
+  <arg name="map_file" default="/home/fetchuser/chinmay/fetch_teleop_ws/my_maps/lab_map_med.yaml" />
   <arg name="mocap_ip" default="192.168.0.127" /> <!-- CHANGE THIS TO OPTITRACK IP -->
-  <arg name="rigid_body" default="Fetch" />
+  <arg name="rigid_body" default="Fetch8" />
 
   <!-- NEW: CALIBRATION ARGUMENTS (Update these after running calibrate_frames.py) -->
   <arg name="tf_x" default="1.0 097" />
