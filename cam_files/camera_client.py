@@ -122,7 +122,7 @@ def _on_collision_msg(msg):# -> None:
 # -------------------------
 # Static panel helpers
 # -------------------------
-def load_map_images(image_dir = "./"):# -> Dict[str, np.ndarray]:
+def load_map_images(image_dir = "/home/fetchuser/chinmay/fetch_teleop_ws/src/fetch_teleop/cam_files/"):# -> Dict[str, np.ndarray]:
     """Load all map panel images once from disk."""
     assert isinstance(image_dir, str), "image_dir must be a string"
     image_dict: Dict[str, np.ndarray] = {}
@@ -133,7 +133,6 @@ def load_map_images(image_dir = "./"):# -> Dict[str, np.ndarray]:
             raise RuntimeError(f"Failed to load panel image: {path}")
         image_dict[layout] = cached_panel_image
     return image_dict
-
 
 
 def build_static_right_panel(
