@@ -20,6 +20,9 @@ class ExperimentLogger:
         self.max_time = rospy.get_param('~max_time', 60.0)
         self.rigid_body_name = rospy.get_param('~rigid_body_name', 'Fetch')
         
+        # --- NEW FIX: Get the log prefix parameter passed down by the wizard ---
+        self.log_prefix = rospy.get_param('~log_prefix', 'TRIAL')
+        
         # --- File Setup ---
         requested_path = "/home/fetchuser/chinmay/fetch_teleop_ws/logs/"
         if os.path.exists(os.path.dirname(requested_path)):
@@ -30,11 +33,13 @@ class ExperimentLogger:
                 os.makedirs(self.log_dir)
 
         ts = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+        
+        # --- NEW FIX: Prepend the prefix to the filenames ---
         self.files = {
-            'A_mocap': os.path.join(self.log_dir, "A_mocap_{}.csv".format(ts)),
-            'B_amcl': os.path.join(self.log_dir, "B_amcl_{}.csv".format(ts)),
-            'C1_sync_event': os.path.join(self.log_dir, "C1_sync_event_{}.csv".format(ts)),
-            'C2_sync_fixed': os.path.join(self.log_dir, "C2_sync_fixed_{}.csv".format(ts))
+            'A_mocap': os.path.join(self.log_dir, "{}_A_mocap_{}.csv".format(self.log_prefix, ts)),
+            'B_amcl': os.path.join(self.log_dir, "{}_B_amcl_{}.csv".format(self.log_prefix, ts)),
+            'C1_sync_event': os.path.join(self.log_dir, "{}_C1_sync_event_{}.csv".format(self.log_prefix, ts)),
+            'C2_sync_fixed': os.path.join(self.log_dir, "{}_C2_sync_fixed_{}.csv".format(self.log_prefix, ts))
         }
 
         self.writers = {}
@@ -81,20 +86,7 @@ class ExperimentLogger:
         self.vel_ang_buffer = deque(maxlen=10)
         self.latest_mocap_vel_smooth = [0.0, 0.0]
 
-        # # --- Subscribers ---
-        # rospy.Subscriber('/cmd_vel_raw', Twist, self.input_callback)
-        # rospy.Subscriber('/safety_status', Bool, self.safety_callback)
-        # # NEW: Listen for Goal Status
-        # rospy.Subscriber('/goal_reached', Bool, self.goal_callback)
-        
-        # rospy.Subscriber('/odom', Odometry, self.odom_callback)
-        # rospy.Subscriber('/amcl_pose', PoseWithCovarianceStamped, self.amcl_callback)
-        
-        
-        # rospy.Subscriber(mocap_topic, PoseStamped, self.mocap_callback)
-
-        # rospy.Timer(rospy.Duration(0.05), self.fixed_rate_loop)
-        
+        # --- Subscribers ---
         self.sub_input = rospy.Subscriber('/cmd_vel_raw', Twist, self.input_callback)
         self.sub_safety = rospy.Subscriber('/safety_status', Bool, self.safety_callback)
         self.sub_goal = rospy.Subscriber('/goal_reached', Bool, self.goal_callback)
@@ -105,8 +97,7 @@ class ExperimentLogger:
 
         self.timer = rospy.Timer(rospy.Duration(0.05), self.fixed_rate_loop)
 
-
-        rospy.loginfo("Experiment Logger Initialized. 4 Logs generating in: {}".format(self.log_dir))
+        rospy.loginfo("Experiment Logger Initialized. Prefix: [{}] Logs generating in: {}".format(self.log_prefix, self.log_dir))
 
     def init_csv(self, key, header):
         f = open(self.files[key], 'w')
@@ -219,7 +210,6 @@ class ExperimentLogger:
 
         if key in self.handles and not self.handles[key].closed:
             self.writers[key].writerow(data)
-
 
     def shutdown_hook(self):
         rospy.loginfo("Shutting down node and saving paths...")

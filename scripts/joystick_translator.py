@@ -1,55 +1,70 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 import rospy
-from geometry_msgs.msg import Twist
 from sensor_msgs.msg import Joy
+from geometry_msgs.msg import Twist
 
 class JoystickTranslator:
     def __init__(self):
         rospy.init_node('joystick_translator')
 
-        # --- CONFIGURATION (Default: Xbox 360 / ONN Layout) ---
-        # Axes
-        self.axis_linear = rospy.get_param('~axis_linear', 4)  # Right Stick Up/Down
-        self.axis_angular = rospy.get_param('~axis_angular', 0) # Left Stick Left/Right
-        
-        # Buttons
-        self.deadman_button = rospy.get_param('~deadman_button', 4) # LB (Left Bumper)
-
-        # Scales (Max Speed)
-        self.scale_linear = rospy.get_param('~scale_linear', 0.5) # m/s
+        # --- Parameters ---
+        self.scale_linear = rospy.get_param('~scale_linear', 0.5)   # m/s
         self.scale_angular = rospy.get_param('~scale_angular', 1.0) # rad/s
+        
+        # 'arcade' (single stick) or 'tank' (dual stick)
+        self.control_scheme = rospy.get_param('~control_scheme', 'arcade') 
 
-        # --- PUBLISHER ---
-        # We publish to raw so the Delay/Logger nodes pick it up
+        # Axes & Buttons (Matching your single_joystick_control.py)
+        self.deadman_button = rospy.get_param('~deadman_button', 4)
+        self.axis_linear = rospy.get_param('~axis_linear', 1)       # Left Stick Y
+        self.axis_angular = rospy.get_param('~axis_angular', 0)     # Left Stick X
+        self.axis_right_y = rospy.get_param('~axis_right_y', 4)     # Right Stick Y (Used for Tank)
+
+        # Publishers & Subscribers
         self.pub = rospy.Publisher('/cmd_vel_raw', Twist, queue_size=1)
+        rospy.Subscriber('/my_joy', Joy, self.joy_callback)
 
-        # --- SUBSCRIBER ---
-        rospy.Subscriber("my_joy", Joy, self.callback)
+        rospy.loginfo("Joystick Translator Active.")
+        rospy.loginfo("Mode: %s | Deadman: Button %d", self.control_scheme.upper(), self.deadman_button)
 
-        rospy.loginfo("Joystick Translator Started.")
-        rospy.loginfo("Deadman: Button %d | Linear: Axis %d | Angular: Axis %d", 
-                      self.deadman_button, self.axis_linear, self.axis_angular)
+    def joy_callback(self, data):
+        target = Twist()
 
-    def callback(self, data):
-        twist = Twist()
-
-        # 1. Check Deadman Switch (Safety)
-        # If button is NOT pressed, we send 0.0 velocity
+        # --- 1. Deadman Safety Check ---
+        # User MUST hold the deadman button to move
         if data.buttons[self.deadman_button] == 1:
-            
-            # 2. Map Axes
-            # Note: Vertical axes are often 1.0 (Up) to -1.0 (Down).
-            # We usually want Up to be Forward (+x), so checks signs.
-            twist.linear.x = data.axes[self.axis_linear] * self.scale_linear
-            twist.angular.z = data.axes[self.axis_angular] * self.scale_angular
+
+            # --- 2. Control Schemes ---
+            if self.control_scheme == 'tank':
+                # TANK CONTROL
+                # Left track = Left Stick Y, Right track = Right Stick Y
+                # Note: We apply the negative sign just like your script, because Up = -1.0
+                left_input = -data.axes[self.axis_linear]
+                right_input = -data.axes[self.axis_right_y]
+
+                # Math for Differential Drive from Tank inputs
+                target.linear.x = ((left_input + right_input) / 2.0) * self.scale_linear
+                target.angular.z = ((right_input - left_input) / 2.0) * self.scale_angular
+
+            else:
+                # ARCADE CONTROL (Single Stick)
+                # Left Stick Y = Forward/Back, Left Stick X = Turn
+                # Inverted linear sign based on your controller setup
+                target.linear.x = -data.axes[self.axis_linear] * self.scale_linear
+                target.angular.z = data.axes[self.axis_angular] * self.scale_angular
 
         else:
-            twist.linear.x = 0.0
-            twist.angular.z = 0.0
+            # Deadman NOT pressed -> Stop the robot immediately
+            target.linear.x = 0.0
+            target.angular.z = 0.0
 
-        self.pub.publish(twist)
+        self.pub.publish(target)
 
 if __name__ == '__main__':
-    JoystickTranslator()
-    rospy.spin()
+    try:
+        JoystickTranslator()
+        rospy.spin()
+    except rospy.ROSInterruptException:
+        pass
