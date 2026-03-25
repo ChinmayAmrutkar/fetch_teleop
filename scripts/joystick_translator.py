@@ -52,7 +52,7 @@ class JoystickTranslator:
                 # ARCADE CONTROL (Single Stick)
                 # Left Stick Y = Forward/Back, Left Stick X = Turn
                 # Inverted linear sign based on your controller setup
-                target.linear.x = -data.axes[self.axis_linear] * self.scale_linear
+                target.linear.x = data.axes[self.axis_linear] * self.scale_linear
                 target.angular.z = data.axes[self.axis_angular] * self.scale_angular
 
         else:

@@ -35,7 +35,7 @@
     <node pkg="fetch_teleop" type="joystick_translator.py" name="joy_trans" output="screen">
         <!-- Mappings for ONN/Xbox Controller -->
         <param name="axis_linear" value="4" /> <!-- Right Stick Vertical -->
-        <param name="axis_angular" value="0" /> <!-- Left Stick Horizontal -->
+        <param name="axis_angular" value="3" /> <!-- Left Stick Horizontal -->
         <param name="deadman_button" value="4" /> <!-- LB Button -->
         
         <!-- Listen to /my_joy instead of /joy -->
