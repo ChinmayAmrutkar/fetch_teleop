@@ -5,7 +5,10 @@
   <arg name="mocap_ip" default="192.168.0.127" /> <!-- CHANGE THIS TO OPTITRACK IP -->
   <arg name="rigid_body" default="Fetch8" />
 
-  <!-- NEW: CALIBRATION ARGUMENTS (Update these after running calibrate_frames.py) -->
+  <!-- NEW: Allow dynamic naming of log files from the Wizard -->
+  <arg name="log_prefix" default="TRIAL_DEFAULT" />
+
+  <!-- CALIBRATION ARGUMENTS (Update these after running calibrate_frames.py) -->
   <arg name="tf_x" default="1.1447" />
   <arg name="tf_y" default="3.9805" />
   <arg name="tf_z" default="0.4821" />
@@ -42,6 +45,8 @@
   <node pkg="fetch_teleop" type="experiment_logger.py" name="experiment_logger" output="screen">
       <param name="max_time" value="120.0" />
       <param name="rigid_body_name" value="$(arg rigid_body)" />
+      <!-- PASS THE PREFIX TO THE LOGGER SO IT SAVES THE PARTICIPANT ID -->
+      <param name="log_prefix" value="$(arg log_prefix)" />
   </node>
 
 </launch>

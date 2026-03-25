@@ -2,7 +2,7 @@
   <arg name="method" default="twist" />
   
   <!-- CONFIGURATION ARGS -->
-  <arg name="delay_time" default="0.25" /> 
+  <arg name="delay_time" default="1.0" /> 
   <arg name="camera_ip" default="192.168.0.172" />
   
   <!-- NEW: Input Selection (keyboard or joystick) -->
@@ -68,10 +68,14 @@
         <param name="delay" value="$(arg delay_time)" />
     </node>
 
+    <!-- NEW: Added Layout argument passing -->
+    <arg name="layout" default="medium" />
+
     <!-- 2.5 External Camera -->
     <node pkg="fetch_teleop" type="external_camera.py" name="external_camera_node" output="screen">
         <param name="delay" value="$(arg delay_time)" />
         <param name="server_host" value="$(arg camera_ip)" />
+        <param name="layout" value="$(arg layout)" />
     </node>
 
   </group>
