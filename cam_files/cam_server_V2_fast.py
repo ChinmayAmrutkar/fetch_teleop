@@ -15,14 +15,14 @@ Latency-oriented changes relative to the original version:
 - Keep listening for the next client after a disconnect.
 """
 
-from __future__ import annotations
+# from __future__ import annotations
 
 import socket
 import struct
 import sys
 import threading
 import time
-from typing import List, Optional, Tuple
+# from typing import List, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -30,7 +30,30 @@ import numpy as np
 
 # Fixed 12-byte network header: 8-byte timestamp + 4-byte JPEG payload length.
 _HEADER_STRUCT = struct.Struct("!dI")
+
 _PREVIEW_WINDOW_NAME = "server preview"
+
+# ---- Python 2.7 compatibility patches ----
+try:
+    BrokenPipeError
+except NameError:
+    BrokenPipeError = socket.error
+
+try:
+    ConnectionResetError
+except NameError:
+    ConnectionResetError = socket.error
+
+try:
+    ConnectionAbortedError
+except NameError:
+    ConnectionAbortedError = socket.error
+
+try:
+    TimeoutError
+except NameError:
+    TimeoutError = socket.timeout
+
 _DISCONNECT_ERRORS = (
     BrokenPipeError,
     ConnectionResetError,
@@ -40,31 +63,49 @@ _DISCONNECT_ERRORS = (
 )
 
 
+
 def _require_positive_int(name, value):# -> int:
     """Validate integer parameters early so failures are explicit."""
-    if not isinstance(value, int):
-        raise TypeError(f"{name} must be an int, got {type(value).__name__}")
+    # if not isinstance(value, int):
+    #     raise TypeError(f"{name} must be an int, got {type(value).__name__}")
+    # if value <= 0:
+    #     raise ValueError(f"{name} must be > 0, got {value}")
+    # return value
+    if not isinstance(value, (int, long)):
+        raise TypeError("%s must be an int" % name)
     if value <= 0:
-        raise ValueError(f"{name} must be > 0, got {value}")
+        raise ValueError("%s must be > 0" % name)
     return value
 
 
 def _require_nonnegative_int(name, value):# -> int:
     """Validate non-negative integer parameters."""
-    if not isinstance(value, int):
-        raise TypeError(f"{name} must be an int, got {type(value).__name__}")
+    # if not isinstance(value, int):
+    #     raise TypeError(f"{name} must be an int, got {type(value).__name__}")
+    # if value < 0:
+    #     raise ValueError(f"{name} must be >= 0, got {value}")
+    # return value
+    if not isinstance(value, (int, long)):
+        raise TypeError("%s must be an int" % name)
     if value < 0:
-        raise ValueError(f"{name} must be >= 0, got {value}")
+        raise ValueError("%s must be >= 0" % name)
     return value
+    
 
 
 def _require_positive_float(name, value):# -> float:
     """Validate positive float parameters when timeouts are enabled."""
+    # if not isinstance(value, (int, float)):
+    #     raise TypeError(f"{name} must be a number, got {type(value).__name__}")
+    # value = float(value)
+    # if value <= 0.0:
+    #     raise ValueError(f"{name} must be > 0, got {value}")
+    # return value
     if not isinstance(value, (int, float)):
-        raise TypeError(f"{name} must be a number, got {type(value).__name__}")
+        raise TypeError("%s must be a number" % name)
     value = float(value)
     if value <= 0.0:
-        raise ValueError(f"{name} must be > 0, got {value}")
+        raise ValueError("%s must be > 0" % name)
     return value
 
 
@@ -93,8 +134,8 @@ def _open_camera(camera_index, use_v4l2):# -> cv2.VideoCapture:
         if cap is not None:
             cap.release()
 
-    raise RuntimeError(f"Could not open camera index {camera_index}")
-
+    # raise RuntimeError(f"Could not open camera index {camera_index}")
+    raise RuntimeError("Could not open camera index %s" % camera_index)
 
 def _configure_camera(
     cap,
@@ -115,15 +156,15 @@ def _configure_camera(
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, float(height))
     cap.set(cv2.CAP_PROP_FPS, float(fps))
 
-    # Ask the backend to keep as little buffering as possible.
-    if hasattr(cv2, "CAP_PROP_BUFFERSIZE"):
-        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+    # # Ask the backend to keep as little buffering as possible.
+    # if hasattr(cv2, "CAP_PROP_BUFFERSIZE"):
+    #     cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
-    # MJPG frequently reduces USB bandwidth and camera-side buffering when supported.
-    if camera_fourcc:
-        if len(camera_fourcc) != 4:
-            raise ValueError("camera_fourcc must be exactly 4 characters, for example 'MJPG'")
-        cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*camera_fourcc))
+    # # MJPG frequently reduces USB bandwidth and camera-side buffering when supported.
+    # if camera_fourcc:
+    #     if len(camera_fourcc) != 4:
+    #         raise ValueError("camera_fourcc must be exactly 4 characters, for example 'MJPG'")
+    #     cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*camera_fourcc))
 
 
 class LatestFrameGrabber:
@@ -148,18 +189,20 @@ class LatestFrameGrabber:
         self.fps = _require_positive_int("fps", fps)
         self.use_v4l2 = bool(use_v4l2)
         self.camera_fourcc = camera_fourcc
-
-        self._cap: Optional[cv2.VideoCapture] = None
-        self._thread: Optional[threading.Thread] = None
+        self._cap = None
+        self._thread = None
+        # self._cap: Optional[cv2.VideoCapture] = None
+        # self._thread: Optional[threading.Thread] = None
         self._stop_event = threading.Event()
         self._condition = threading.Condition()
 
         # Shared frame state. ``_latest_frame`` is replaced atomically with a new
         # NumPy array on every successful capture.
-        self._latest_frame: Optional[np.ndarray] = None
+        # self._latest_frame: Optional[np.ndarray] = None
+        self._latest_frame = None
         self._latest_frame_id = 0
         self._running = False
-        self._capture_exception: Optional[BaseException] = None
+        self._capture_exception = None
 
     def start(self):# -> None:
         """Open the camera and launch the background capture thread."""
@@ -173,8 +216,8 @@ class LatestFrameGrabber:
         self._thread = threading.Thread(
             target=self._worker,
             name="camera-capture",
-            daemon=True,
         )
+        self._thread.daemon = True
         self._thread.start()
 
     def stop(self):# -> None:
@@ -206,22 +249,28 @@ class LatestFrameGrabber:
             available at wake-up time, and ``frame_id`` is its monotonically
             increasing sequence number.
         """
+        try:
+            monotonic = time.monotonic
+        except AttributeError:
+            monotonic = time.time
         timeout_s = _require_positive_float("timeout_s", timeout_s)
-        deadline = time.monotonic() + timeout_s
-
+        # deadline = time.monotonic() + timeout_s
+        deadline = monotonic() + timeout_s
+        
         with self._condition:
             while (
                 self._running
                 and self._latest_frame_id == last_seen_frame_id
                 and self._capture_exception is None
             ):
-                remaining_s = deadline - time.monotonic()
+                # remaining_s = deadline - time.monotonic()
+                remaining_s = deadline - monotonic()
                 if remaining_s <= 0.0:
                     return None, last_seen_frame_id
                 self._condition.wait(timeout=remaining_s)
 
             if self._capture_exception is not None:
-                raise RuntimeError("Camera capture worker failed") from self._capture_exception
+                raise RuntimeError("Camera capture worker failed")
 
             if self._latest_frame is None or self._latest_frame_id == last_seen_frame_id:
                 return None, last_seen_frame_id
@@ -240,7 +289,8 @@ class LatestFrameGrabber:
                 if not ok:
                     consecutive_failures += 1
                     if consecutive_failures == 1 or consecutive_failures % 60 == 0:
-                        print(f"[SERVER] Camera read failed ({consecutive_failures})")
+                        # print("[SERVER] Camera read failed ({consecutive_failures})")
+                        print("[SERVER] Camera read failed (%d)" % consecutive_failures)
                     time.sleep(0.005)
                     continue
 
@@ -301,29 +351,44 @@ def _send_memoryviews(conn, views):# -> None:
         conn.sendall(view)
 
 
-def _send_packet(
-    conn,
-    header_buffer,
-    timestamp_s,
-    encoded_jpeg,
-):# -> None:
-    """Pack and send one frame packet.
+# def _send_packet(
+#     conn,
+#     header_buffer,
+#     timestamp_s,
+#     encoded_jpeg,
+# ):# -> None:
+#     """Pack and send one frame packet.
 
-    Parameters
-    ----------
-    encoded_jpeg:
-        One-dimensional ``uint8`` array produced by ``cv2.imencode``.
-    """
-    assert encoded_jpeg.ndim == 1, "JPEG buffer must be a flat array"
-    assert encoded_jpeg.dtype == np.uint8, "JPEG buffer must use uint8 storage"
+#     Parameters
+#     ----------
+#     encoded_jpeg:
+#         One-dimensional ``uint8`` array produced by ``cv2.imencode``.
+#     """
+#     assert encoded_jpeg.ndim == 1, "JPEG buffer must be a flat array"
+#     assert encoded_jpeg.dtype == np.uint8, "JPEG buffer must use uint8 storage"
 
-    frame_size = int(encoded_jpeg.size)
-    _HEADER_STRUCT.pack_into(header_buffer, 0, float(timestamp_s), frame_size)
+#     frame_size = int(encoded_jpeg.size)
+#     _HEADER_STRUCT.pack_into(header_buffer, 0, float(timestamp_s), frame_size)
 
-    header_view = memoryview(header_buffer)
-    payload_view = memoryview(encoded_jpeg)
-    _send_memoryviews(conn, [header_view, payload_view])
+#     header_view = memoryview(header_buffer)
+#     payload_view = memoryview(encoded_jpeg)
+#     _send_memoryviews(conn, [header_view, payload_view])
 
+def _send_packet(conn, header_buffer, timestamp_s, encoded_jpeg):
+    # Ensure flat uint8 buffer (Python 2.7 safe)
+    if encoded_jpeg.ndim != 1:
+        encoded_jpeg = encoded_jpeg.reshape(-1)
+
+    if encoded_jpeg.dtype != np.uint8:
+        encoded_jpeg = encoded_jpeg.astype(np.uint8)
+
+    data = encoded_jpeg.tostring()
+    size = len(data)
+
+    _HEADER_STRUCT.pack_into(header_buffer, 0, float(timestamp_s), size)
+
+    conn.sendall(header_buffer)
+    conn.sendall(data)
 
 def _maybe_show_preview(frame, show_preview):# -> bool:
     """Display the preview window only when explicitly requested.
@@ -405,8 +470,9 @@ def start_server(
     _require_positive_int("fps", fps)
     jpeg_quality = _require_positive_int("jpeg_quality", jpeg_quality)
     if jpeg_quality > 100:
-        raise ValueError(f"jpeg_quality must be <= 100, got {jpeg_quality}")
-
+        # raise ValueError("jpeg_quality must be <= 100, got {jpeg_quality}")
+        raise ValueError("jpeg_quality must be <= 100, got %s" % jpeg_quality)
+    
     encode_params = [int(cv2.IMWRITE_JPEG_QUALITY), jpeg_quality]
     frame_source = LatestFrameGrabber(
         camera_index=camera_index,
@@ -424,20 +490,24 @@ def start_server(
         frame_source.start()
         server_sock.bind((host, port))
         server_sock.listen(1)
-        print(f"[SERVER] Listening on {host}:{port}...")
-
+        # print("[SERVER] Listening on {host}:{port}...")
+        print("[SERVER] Listening on %s:%s..." % (host, port))
+        
         while True:
             conn, addr = server_sock.accept()
-            print(f"[SERVER] Client connected from {addr}")
+            print("[SERVER] Client connected from %s" % (addr,))
+            # print("[SERVER] Client connected from {addr}")
 
             try:
                 _configure_client_socket(conn, send_timeout_s)
                 keep_running = _serve_client(conn, frame_source, encode_params, show_preview)
             except _DISCONNECT_ERRORS as exc:
-                print(f"[SERVER] Client disconnected: {exc}")
+                # print("[SERVER] Client disconnected: {exc}")
+                print("[SERVER] Client disconnected: %s" % (exc,))
                 keep_running = True
             except OSError as exc:
-                print(f"[SERVER] Socket error while streaming: {exc}")
+                # print("[SERVER] Socket error while streaming: {exc}")
+                print("[SERVER] Socket error while streaming: %s" % (exc,))
                 keep_running = True
             finally:
                 try:
@@ -465,7 +535,7 @@ if __name__ == "__main__":
     start_server(
         host="0.0.0.0",
         port=5000,
-        camera_index=1,
+        camera_index=0,
         width=1920,
         height=1080,
         fps=30,
