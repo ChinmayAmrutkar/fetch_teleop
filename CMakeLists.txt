@@ -26,5 +26,6 @@ catkin_install_python(PROGRAMS
   scripts/experiment_logger.py
   scripts/joystick_translator.py
   scripts/experiment_supervisor.py
+  scripts/run_trial.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )

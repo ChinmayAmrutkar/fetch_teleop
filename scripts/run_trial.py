@@ -25,7 +25,7 @@ MAP_DATABASE = {
     "2": {
         "tag": "MED", 
         "yaml": "lab_map_med.yaml", 
-        "tf_x": 2.54, "tf_y": -1.2, "tf_yaw": 1.57 # Example values
+        "tf_x": 1.1447, "tf_y": 3.9805, "tf_yaw": 1.57 # Example values
     },
     "3": {
         "tag": "HARD", 
