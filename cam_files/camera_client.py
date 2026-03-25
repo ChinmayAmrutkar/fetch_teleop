@@ -22,7 +22,7 @@ import struct
 import threading
 import time
 from dataclasses import dataclass
-from typing import Dict, Literal, Optional, Tuple, Union
+from typing import Dict, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -44,8 +44,8 @@ goal_reached_topic = "/goal_reached"
 is_collision_topic = "/is_collision"
 
 # Keep the original defaults unless the CLI overrides them.
-frame_rotation = 90.0
-frame_scaling = 0.5
+frame_rotation = 270.0
+frame_scaling = 0.6
 right_canvas_aspect = 3.0 / 2.0
 
 # For the undelayed feed, default to no intentional display delay.
